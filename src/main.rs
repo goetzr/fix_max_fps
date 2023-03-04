@@ -57,17 +57,18 @@ struct Option {
     value: String,
 }
 
+//TODO: Want to copy malformed lines as-is. Only line that must be formatted properly is the maxFps line!
+
 fn read_options(path: &Path) -> Result<Vec<Option>> {
     let file = OpenOptions::new().read(true).open(path).map_err(|e| Error::ReadOptionsFile(e))?;
     let reader = BufReader::new(file);
     let mut options = Vec::new();
-    for (line_num, line) in reader.lines().enumerate() {
+    for (line_idx, line) in reader.lines().enumerate() {
         let line = line.map_err(|e| Error::ReadOptionsFile(e))?;
-        let parts: Vec<&str> = line.split(OPTIONS_SEPARATOR).collect();
-        if parts.len() != 2 {
-            return Err(Error::OptionsFileFormat(line_num));
-        }
-        options.push(Option { key: parts[0].to_string(), value: parts[1].to_string() });
+        let sep_idx = line.find(OPTIONS_SEPARATOR).ok_or(Error::OptionsFileFormat(line_idx + 1))?;
+        let key = &line[..sep_idx];
+        let value = &line[sep_idx + 1..];
+        options.push(Option { key: key.to_string(), value: value.to_string() });
     }
     Ok(options)
 }
