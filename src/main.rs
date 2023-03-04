@@ -58,6 +58,7 @@ struct Option {
 }
 
 //TODO: Want to copy malformed lines as-is. Only line that must be formatted properly is the maxFps line!
+//TODO: Error causes getchar to be skipped, so terminal window goes away. Fix this!
 
 fn read_options(path: &Path) -> Result<Vec<Option>> {
     let file = OpenOptions::new().read(true).open(path).map_err(|e| Error::ReadOptionsFile(e))?;
