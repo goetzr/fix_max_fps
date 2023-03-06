@@ -17,6 +17,7 @@ fn main() {
     if let Err(e) = try_main() {
         eprintln!("ERROR: {}", e);
     }
+    unsafe { libc::getchar() };
 }
 
 fn try_main() -> anyhow::Result<()> {
@@ -24,15 +25,14 @@ fn try_main() -> anyhow::Result<()> {
     println!("INFO: Options file found at {}", options_file_path.display());
 
     let mut options = read_options(&options_file_path)?;
-    if is_max_fps_zero(options.as_slice())? {
-        fix_max_fps(&mut options);
+    let max_fps_option = get_max_fps_option(&mut options)?;
+    if get_max_fps_value(&max_fps_option)? == "0" {
+        *max_fps_option = format!("{}{}{}", MAX_FPS_OPTION, OPTIONS_SEPARATOR, GOOD_VALUE);
         write_options(options.as_slice(), &options_file_path)?;
         println!("INFO: {} option fixed!", MAX_FPS_OPTION);
     } else {
         println!("INFO: {} option is OK!", MAX_FPS_OPTION);
     }
-
-    unsafe { libc::getchar() };
     
     Ok(())
 }
@@ -52,41 +52,31 @@ fn get_options_file_path() -> Result<PathBuf> {
     Ok(options_file_path)
 }
 
-struct Option {
-    key: String,
-    value: String,
-}
-
-//TODO: Want to copy malformed lines as-is. Only line that must be formatted properly is the maxFps line!
-//TODO: Error causes getchar to be skipped, so terminal window goes away. Fix this!
-
-fn read_options(path: &Path) -> Result<Vec<Option>> {
+fn read_options(path: &Path) -> Result<Vec<String>> {
     let file = OpenOptions::new().read(true).open(path).map_err(|e| Error::ReadOptionsFile(e))?;
     let reader = BufReader::new(file);
     let mut options = Vec::new();
-    for (line_idx, line) in reader.lines().enumerate() {
+    for line in reader.lines() {
         let line = line.map_err(|e| Error::ReadOptionsFile(e))?;
-        let sep_idx = line.find(OPTIONS_SEPARATOR).ok_or(Error::OptionsFileFormat(line_idx + 1))?;
-        let key = &line[..sep_idx];
-        let value = &line[sep_idx + 1..];
-        options.push(Option { key: key.to_string(), value: value.to_string() });
+        options.push(line);
     }
     Ok(options)
 }
 
-fn is_max_fps_zero(options: &[Option]) -> Result<bool> {
-    Ok(options.iter().find(|op| op.key == MAX_FPS_OPTION).ok_or(Error::MaxFpsOptionMissing)?.value == "0")
+fn get_max_fps_option(options: &mut [String]) -> Result<&mut String> {
+    Ok(options.iter_mut().find(|op| op.starts_with(MAX_FPS_OPTION)).ok_or(Error::MaxFpsOptionMissing)?)
 }
 
-fn fix_max_fps(options: &mut Vec<Option>) {
-    options.iter_mut().find(|op| op.key == MAX_FPS_OPTION).expect("option missing").value = GOOD_VALUE.to_string();
+fn get_max_fps_value(max_fps_option: &String) -> Result<&str> {
+    let idx_sep = max_fps_option.find(OPTIONS_SEPARATOR).ok_or(Error::MaxFpsOptionMalformed)?;
+    Ok(&max_fps_option[idx_sep + 1..])
 }
 
-fn write_options(options: &[Option], path: &Path) -> Result<()> {
+fn write_options(options: &[String], path: &Path) -> Result<()> {
     let file = OpenOptions::new().write(true).open(path).map_err(|e| Error::WriteOptionsFile(e))?;
     let mut writer = BufWriter::new(file);
     for option in options.iter() {
-        writer.write_all(format!("{}{}{}\n", option.key, OPTIONS_SEPARATOR, option.value).as_bytes()).map_err(|e| Error::WriteOptionsFile(e))?;
+        writer.write_all(format!("{}\n", option).as_bytes()).map_err(|e| Error::WriteOptionsFile(e))?;
     }
     writer.flush().map_err(|e| Error::WriteOptionsFile(e))?;
     Ok(())

@@ -8,8 +8,8 @@ pub enum Error {
     AppDataDir,
     FindOptionsFile,
     ReadOptionsFile(io::Error),
-    OptionsFileFormat(usize),
     MaxFpsOptionMissing,
+    MaxFpsOptionMalformed,
     WriteOptionsFile(io::Error),
 }
 
@@ -19,8 +19,8 @@ impl fmt::Display for Error {
             Error::AppDataDir => write!(f, "failed to retrieve the APPDATA environment variable"),
             Error::FindOptionsFile => write!(f, "options file does not exist"),
             Error::ReadOptionsFile(e) => write!(f, "failed to read the options file: {}", e),
-            Error::OptionsFileFormat(line) => write!(f, "line {} of the options file is malformed", line),
             Error::MaxFpsOptionMissing => write!(f, "maxFps option not found"),
+            Error::MaxFpsOptionMalformed => write!(f, "maxFps option malformed"),
             Error::WriteOptionsFile(e) => write!(f, "failed to write the options file: {}", e),
         }
     }
